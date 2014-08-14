@@ -1,7 +1,7 @@
 /////////////////////////////////////////////////////////////////////////
 // Toker.cs  -  Tokenizer                                              //
 //              Reads words and punctuation symbols from a file stream //
-// ver 2.4                                                             //
+// ver 2.5                                                             //
 // Language:    C#, Visual Studio 10.0, .Net Framework 4.0             //
 // Platform:    Dell Precision T7400 , Win 7, SP 1                     //
 // Application: Pr#2 Help, CSE681, Fall 2011                           //
@@ -47,6 +47,8 @@
  * 
  * Maintenance History
  * ===================
+ * ver 2.5 : 14 Aug 14
+ * - added patch to handle @"..." string format
  * ver 2.4 : 24 Sep 11
  * - added a thrown exception if extract encounters a string with the 
  *   substring "@.  This should be handled but raises two many changes
@@ -253,7 +255,8 @@ namespace CStoker
 
       int posErr = lineRemainder.IndexOf("@\"");
       if (posErr != -1)
-        throw new Exception("Toker does not handle strings containing @\"");
+        //throw new Exception("Toker does not handle strings containing @\"");
+        lineRemainder.Remove(posErr, 1);
 
       int posCppComm = lineRemainder.IndexOf("//");
       int posCComm   = lineRemainder.IndexOf("/*");
@@ -572,13 +575,15 @@ namespace CStoker
         }
         Console.Write("\n");
         //
-        string[] msgs = new string[10];
+        string[] msgs = new string[12];
         msgs[0] = "abc";
+        msgs[11] = "-- \"abc def\" --";
         msgs[1] = "string with double quotes \"first quote\""
                   + " and \"second quote\" but no more";
         msgs[2] = "string with single quotes \'1\' and \'2\'";
         msgs[3] = "string with quotes \"first quote\" and \'2\'";
         msgs[4] = "string with C comments /* first */ and /*second*/ but no more";
+        msgs[10] = @"string with @ \\stuff";
         msgs[5] = "/* single C comment */";
         msgs[6] = " -- /* another single comment */ --";
         msgs[7] = "// a C++ comment\n";

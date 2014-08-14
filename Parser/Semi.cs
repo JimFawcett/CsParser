@@ -1,6 +1,6 @@
 /////////////////////////////////////////////////////////////////////////
 // Semi.cs   -  Builds semiExpressions                                 //
-// ver 2.1                                                             //
+// ver 2.2                                                             //
 // Language:    C#, Visual Studio 10.0, .Net Framework 4.0             //
 // Platform:    Dell Precision T7400 , Win 7, SP 1                     //
 // Application: Pr#2 Help, CSE681, Fall 2011                           //
@@ -53,6 +53,8 @@
  * 
  * Maintenance History
  * ===================
+ * ver 2.2 : 14 Aug 14
+ * - added folding rule for "for(int i=0; i<count; ++i)" type statements
  * ver 2.1 : 24 Sep 11
  * - collect line starting with # and ending with \n as semiExpression.
  * ver 2.0 : 05 Sep 11
@@ -260,6 +262,20 @@ namespace CSsemi
         if(returnNewLines || currTok != "\n")
           semiExp.Add(currTok);
       } while(!isTerminator(currTok) || count == 0);
+      
+      // if for then append next two semiExps, e.g., for(int i=0; i<se.count; ++i) {
+
+      if(semiExp.Contains("for"))
+      {
+        CSemiExp se = clone();
+        getSemi();
+        se.Add(semiExp.ToArray());
+        getSemi();
+        se.Add(semiExp.ToArray());
+        semiExp.Clear();
+        for (int i = 0; i < se.count; ++i)
+          semiExp.Add(se[i]);
+      }
       return (semiExp.Count > 0);
     }
     //----< get length property >----------------------------------------

@@ -1,7 +1,7 @@
 /////////////////////////////////////////////////////////////////////////
 // Toker.cs  -  Tokenizer                                              //
 //              Reads words and punctuation symbols from a file stream //
-// ver 2.4                                                             //
+// ver 2.5                                                             //
 // Language:    C#, Visual Studio 10.0, .Net Framework 4.0             //
 // Platform:    Dell Precision T7400 , Win 7, SP 1                     //
 // Application: Pr#2 Help, CSE681, Fall 2011                           //
@@ -47,6 +47,8 @@
  * 
  * Maintenance History
  * ===================
+ * ver 2.5 : 14 Aug 14
+ * - added patch to handle @"..." string format
  * ver 2.4 : 24 Sep 11
  * - added a thrown exception if extract encounters a string with the 
  *   substring "@.  This should be handled but raises two many changes
