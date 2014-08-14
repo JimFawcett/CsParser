@@ -260,6 +260,20 @@ namespace CSsemi
         if(returnNewLines || currTok != "\n")
           semiExp.Add(currTok);
       } while(!isTerminator(currTok) || count == 0);
+      
+      // if for then append next two semiExps, e.g., for(int i=0; i<se.count; ++i) {
+
+      if(semiExp.Contains("for"))
+      {
+        CSemiExp se = clone();
+        getSemi();
+        se.Add(semiExp.ToArray());
+        getSemi();
+        se.Add(semiExp.ToArray());
+        semiExp.Clear();
+        for (int i = 0; i < se.count; ++i)
+          semiExp.Add(se[i]);
+      }
       return (semiExp.Count > 0);
     }
     //----< get length property >----------------------------------------

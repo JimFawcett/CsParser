@@ -253,7 +253,8 @@ namespace CStoker
 
       int posErr = lineRemainder.IndexOf("@\"");
       if (posErr != -1)
-        throw new Exception("Toker does not handle strings containing @\"");
+        //throw new Exception("Toker does not handle strings containing @\"");
+        lineRemainder.Remove(posErr, 1);
 
       int posCppComm = lineRemainder.IndexOf("//");
       int posCComm   = lineRemainder.IndexOf("/*");
@@ -572,13 +573,15 @@ namespace CStoker
         }
         Console.Write("\n");
         //
-        string[] msgs = new string[10];
+        string[] msgs = new string[12];
         msgs[0] = "abc";
+        msgs[11] = "-- \"abc def\" --";
         msgs[1] = "string with double quotes \"first quote\""
                   + " and \"second quote\" but no more";
         msgs[2] = "string with single quotes \'1\' and \'2\'";
         msgs[3] = "string with quotes \"first quote\" and \'2\'";
         msgs[4] = "string with C comments /* first */ and /*second*/ but no more";
+        msgs[10] = @"string with @ \\stuff";
         msgs[5] = "/* single C comment */";
         msgs[6] = " -- /* another single comment */ --";
         msgs[7] = "// a C++ comment\n";
