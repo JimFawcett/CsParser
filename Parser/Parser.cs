@@ -1,6 +1,6 @@
 ﻿///////////////////////////////////////////////////////////////////////
 // Parser.cs - Parser detects code constructs defined by rules       //
-// ver 1.3                                                           //
+// ver 1.5                                                           //
 // Language:    C#, 2008, .Net Framework 4.0                         //
 // Platform:    Dell Precision T7400, Win7, SP1                      //
 // Application: Demonstration for CSE681, Project #2, Fall 2011      //
@@ -15,13 +15,15 @@
  */
 /* Required Files:
  *   IRulesAndActions.cs, RulesAndActions.cs, Parser.cs, Semi.cs, Toker.cs
- *   
- * Build command:
- *   csc /D:TEST_PARSER Parser.cs IRulesAndActions.cs RulesAndActions.cs \
- *                      Semi.cs Toker.cs
+ *   Display.cs
  *   
  * Maintenance History:
  * --------------------
+ * ver 1.5 : 14 Oct 2014
+ * - added bug fix to tokenizer to avoid endless loop on
+ *   multi-line strings
+ * ver 1.4 : 30 Sep 2014
+ * - modified test stub to display scope counts
  * ver 1.3 : 24 Sep 2011
  * - Added exception handling for exceptions thrown while parsing.
  *   This was done because Toker now throws if it encounters a
@@ -62,10 +64,11 @@ namespace CodeAnalysis
     {
       // Note: rule returns true to tell parser to stop
       //       processing the current semiExp
+      
+      Display.displaySemiString(semi.displayStr());
 
       foreach (IRule rule in Rules)
       {
-        //semi.display();
         if (rule.test(semi))
           break;
       }
@@ -94,6 +97,17 @@ namespace CodeAnalysis
       return files;
     }
 
+    static void ShowCommandLine(string[] args)
+    {
+      Console.Write("\n  Commandline args are:\n  ");
+      foreach (string arg in args)
+      {
+        Console.Write("  {0}", arg);
+      }
+      Console.Write("\n  current directory: {0}", System.IO.Directory.GetCurrentDirectory());
+      Console.Write("\n");
+    }
+
     //----< Test Stub >--------------------------------------------------
 
 #if(TEST_PARSER)
@@ -103,10 +117,12 @@ namespace CodeAnalysis
       Console.Write("\n  Demonstrating Parser");
       Console.Write("\n ======================\n");
 
+      ShowCommandLine(args);
+
       List<string> files = TestParser.ProcessCommandline(args);
-      foreach (object file in files)
+      foreach (string file in files)
       {
-        Console.Write("\n  Processing file {0}\n", file as string);
+        Console.Write("\n  Processing file {0}\n", System.IO.Path.GetFileName(file));
 
         CSsemi.CSemiExp semi = new CSsemi.CSemiExp();
         semi.displayNewLines = false;
@@ -117,7 +133,7 @@ namespace CodeAnalysis
         }
 
         Console.Write("\n  Type and Function Analysis");
-        Console.Write("\n ----------------------------\n");
+        Console.Write("\n ----------------------------");
 
         BuildCodeAnalyzer builder = new BuildCodeAnalyzer(semi);
         Parser parser = builder.build();
@@ -126,7 +142,7 @@ namespace CodeAnalysis
         {
           while (semi.getSemi())
             parser.parse(semi);
-          Console.Write("\n\n  locations table contains:");
+          Console.Write("\n  locations table contains:");
         }
         catch (Exception ex)
         {
@@ -134,14 +150,29 @@ namespace CodeAnalysis
         }
         Repository rep = Repository.getInstance();
         List<Elem> table = rep.locations;
+        Console.Write(
+            "\n  {0,10}, {1,25}, {2,5}, {3,5}, {4,5}, {5,5}, {6,5}, {7,5}",
+            "category", "name", "bLine", "eLine", "bScop", "eScop", "size", "cmplx"
+        );
+        Console.Write(
+            "\n  {0,10}, {1,25}, {2,5}, {3,5}, {4,5}, {5,5}, {6,5}, {7,5}",
+            "--------", "----", "-----", "-----", "-----", "-----", "----", "-----"
+        );
         foreach (Elem e in table)
         {
-          Console.Write("\n  {0,10}, {1,25}, {2,5}, {3,5}", e.type, e.name, e.begin, e.end);
+          if (e.type == "class" || e.type == "struct")
+            Console.Write("\n");
+          Console.Write(
+            "\n  {0,10}, {1,25}, {2,5}, {3,5}, {4,5}, {5,5}, {6,5}, {7,5}", 
+            e.type, e.name, e.beginLine, e.endLine, e.beginScopeCount, e.endScopeCount+1,
+            e.endLine-e.beginLine+1, e.endScopeCount-e.beginScopeCount+1
+          );
         }
-        Console.WriteLine();
-        Console.Write("\n\n  That's all folks!\n\n");
+
+        Console.Write("\n");
         semi.close();
       }
+      Console.Write("\n\n");
     }
 #endif
   }

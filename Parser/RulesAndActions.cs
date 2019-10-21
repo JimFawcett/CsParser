@@ -1,6 +1,6 @@
 ﻿///////////////////////////////////////////////////////////////////////
 // RulesAndActions.cs - Parser rules specific to an application      //
-// ver 2.1                                                           //
+// ver 2.3                                                           //
 // Language:    C#, 2008, .Net Framework 4.0                         //
 // Platform:    Dell Precision T7400, Win7, SP1                      //
 // Application: Demonstration for CSE681, Project #2, Fall 2011      //
@@ -44,6 +44,9 @@
  *   
  * Maintenance History:
  * --------------------
+ * ver 2.3 : 30 Sep 2014
+ * - added scope-based complexity analysis
+ *   Note: doesn't detect braceless scopes yet
  * ver 2.2 : 24 Sep 2011
  * - modified Semi package to extract compile directives (statements with #)
  *   as semiExpressions
@@ -97,8 +100,10 @@ namespace CodeAnalysis
   {
     public string type { get; set; }
     public string name { get; set; }
-    public int begin { get; set; }
-    public int end { get; set; }
+    public int beginLine { get; set; }
+    public int endLine { get; set; }
+    public int beginScopeCount { get; set; }
+    public int endScopeCount { get; set; }
 
     public override string ToString()
     {
@@ -106,8 +111,8 @@ namespace CodeAnalysis
       temp.Append("{");
       temp.Append(String.Format("{0,-10}", type)).Append(" : ");
       temp.Append(String.Format("{0,-10}", name)).Append(" : ");
-      temp.Append(String.Format("{0,-5}", begin.ToString()));  // line of scope start
-      temp.Append(String.Format("{0,-5}", end.ToString()));    // line of scope end
+      temp.Append(String.Format("{0,-5}", beginLine.ToString()));  // line of scope start
+      temp.Append(String.Format("{0,-5}", endLine.ToString()));    // line of scope end
       temp.Append("}");
       return temp.ToString();
     }
@@ -117,6 +122,8 @@ namespace CodeAnalysis
   {
     ScopeStack<Elem> stack_ = new ScopeStack<Elem>();
     List<Elem> locations_ = new List<Elem>();
+    Dictionary<string, List<Elem>> locationsTable_ = new Dictionary<string, List<Elem>>();
+
     static Repository instance;
 
     public Repository()
@@ -124,11 +131,13 @@ namespace CodeAnalysis
       instance = this;
     }
 
+    //----< provides all code access to Repository >-------------------
     public static Repository getInstance()
     {
       return instance;
     }
-    // provides all actions access to current semiExp
+
+    //----< provides all actions access to current semiExp >-----------
 
     public CSsemi.CSemiExp semi
     {
@@ -148,43 +157,59 @@ namespace CodeAnalysis
       get;
       set;
     }
-    // enables recursively tracking entry and exit from scopes
+
+    //----< enables recursively tracking entry and exit from scopes >--
+
+    public int scopeCount
+    {
+      get;
+      set;
+    }
 
     public ScopeStack<Elem> stack  // pushed and popped by scope rule's action
     {
       get { return stack_; } 
     }
+ 
     // the locations table is the result returned by parser's actions
     // in this demo
 
     public List<Elem> locations
     {
       get { return locations_; }
+      set { locations_ = value; }
     }
+
+    public Dictionary<string, List<Elem>> LocationsTable 
+    {
+      get { return locationsTable_; }
+      set { locationsTable_ = value; } 
+    }
+
   }
   /////////////////////////////////////////////////////////
   // pushes scope info on stack when entering new scope
 
   public class PushStack : AAction
   {
-    Repository repo_;
-
     public PushStack(Repository repo)
     {
       repo_ = repo;
     }
     public override void doAction(CSsemi.CSemiExp semi)
     {
+      Display.displayActions(actionDelegate, "action PushStack");
+      ++repo_.scopeCount;
       Elem elem = new Elem();
       elem.type = semi[0];  // expects type
       elem.name = semi[1];  // expects name
-      elem.begin = repo_.semi.lineCount - 1;
-      elem.end = 0;
+      elem.beginLine = repo_.semi.lineCount - 1;
+      elem.endLine = 0;
+      elem.beginScopeCount = repo_.scopeCount;
+      elem.endScopeCount = 0;
       repo_.stack.push(elem);
-      if (elem.type == "control" || elem.name == "anonymous")
-        return;
-      repo_.locations.Add(elem);
-
+      if (AAction.displayStack)
+        repo_.stack.display();
       if (AAction.displaySemi)
       {
         Console.Write("\n  line# {0,-5}", repo_.semi.lineCount - 1);
@@ -193,8 +218,9 @@ namespace CodeAnalysis
         Console.Write("{0}", indent);
         this.display(semi); // defined in abstract action
       }
-      if(AAction.displayStack)
-        repo_.stack.display();
+      if (elem.type == "control" || elem.name == "anonymous")
+        return;
+      repo_.locations.Add(elem);
     }
   }
   /////////////////////////////////////////////////////////
@@ -202,14 +228,13 @@ namespace CodeAnalysis
 
   public class PopStack : AAction
   {
-    Repository repo_;
-
     public PopStack(Repository repo)
     {
       repo_ = repo;
     }
     public override void doAction(CSsemi.CSemiExp semi)
     {
+      Display.displayActions(actionDelegate, "action SaveDeclar");
       Elem elem;
       try
       {
@@ -221,9 +246,10 @@ namespace CodeAnalysis
           {
             if (elem.name == temp.name)
             {
-              if ((repo_.locations[i]).end == 0)
+              if ((repo_.locations[i]).endLine == 0)
               {
-                (repo_.locations[i]).end = repo_.semi.lineCount;
+                (repo_.locations[i]).endLine = repo_.semi.lineCount;
+                (repo_.locations[i]).endScopeCount = repo_.scopeCount;
                 break;
               }
             }
@@ -232,8 +258,6 @@ namespace CodeAnalysis
       }
       catch
       {
-        Console.Write("popped empty stack on semiExp: ");
-        semi.display();
         return;
       }
       CSsemi.CSemiExp local = new CSsemi.CSemiExp();
@@ -256,8 +280,6 @@ namespace CodeAnalysis
 
   public class PrintFunction : AAction
   {
-    Repository repo_;
-
     public PrintFunction(Repository repo)
     {
       repo_ = repo;
@@ -280,8 +302,6 @@ namespace CodeAnalysis
 
   public class Print : AAction
   {
-    Repository repo_;
-
     public Print(Repository repo)
     {
       repo_ = repo;
@@ -293,12 +313,43 @@ namespace CodeAnalysis
     }
   }
   /////////////////////////////////////////////////////////
+  // display public declaration
+
+  public class SaveDeclar : AAction
+  {
+    public SaveDeclar(Repository repo)
+    {
+      repo_ = repo;
+    }
+    public override void doAction(CSsemi.CSemiExp semi)
+    {
+      Display.displayActions(actionDelegate, "action SaveDeclar");
+      Elem elem = new Elem();
+      elem.type = semi[0];  // expects type
+      elem.name = semi[1];  // expects name
+      elem.beginLine = repo_.semi.lineCount;
+      elem.endLine = elem.beginLine;
+      elem.beginScopeCount = repo_.scopeCount;
+      elem.endScopeCount = elem.beginScopeCount;
+      if (AAction.displaySemi)
+      {
+        Console.Write("\n  line# {0,-5}", repo_.semi.lineCount - 1);
+        Console.Write("entering ");
+        string indent = new string(' ', 2 * repo_.stack.count);
+        Console.Write("{0}", indent);
+        this.display(semi); // defined in abstract action
+      }
+      repo_.locations.Add(elem);
+    }
+  }
+  /////////////////////////////////////////////////////////
   // rule to detect namespace declarations
 
   public class DetectNamespace : ARule
   {
     public override bool test(CSsemi.CSemiExp semi)
     {
+      Display.displayRules(actionDelegate, "rule   DetectNamespace");
       int index = semi.Contains("namespace");
       if (index != -1)
       {
@@ -319,6 +370,7 @@ namespace CodeAnalysis
   {
     public override bool test(CSsemi.CSemiExp semi)
     {
+      Display.displayRules(actionDelegate, "rule   DetectClass");
       int indexCL = semi.Contains("class");
       int indexIF = semi.Contains("interface");
       int indexST = semi.Contains("struct");
@@ -352,6 +404,7 @@ namespace CodeAnalysis
     }
     public override bool test(CSsemi.CSemiExp semi)
     {
+      Display.displayRules(actionDelegate, "rule   DetectFunction");
       if (semi[semi.count - 1] != "{")
         return false;
 
@@ -374,6 +427,7 @@ namespace CodeAnalysis
   {
     public override bool test(CSsemi.CSemiExp semi)
     {
+      Display.displayRules(actionDelegate, "rule   DetectAnonymousScope");
       int index = semi.Contains("{");
       if (index != -1)
       {
@@ -388,12 +442,48 @@ namespace CodeAnalysis
     }
   }
   /////////////////////////////////////////////////////////
+  // detect public declaration
+
+  public class DetectPublicDeclar : ARule
+  {
+    public override bool test(CSsemi.CSemiExp semi)
+    {
+      Display.displayRules(actionDelegate, "rule   DetectPublicDeclar");
+      int index = semi.Contains(";");
+      if (index != -1)
+      {
+        index = semi.Contains("public");
+        if (index == -1)
+          return true;
+        CSsemi.CSemiExp local = new CSsemi.CSemiExp();
+        // create local semiExp with tokens for type and name
+        local.displayNewLines = false;
+        local.Add("public "+semi[index+1]).Add(semi[index+2]);
+
+        index = semi.Contains("=");
+        if (index != -1)
+        {
+          doActions(local);
+          return true;
+        }
+        index = semi.Contains("(");
+        if(index == -1)
+        {
+          doActions(local);
+          return true;
+        }
+      }
+      return false;
+    }
+  }
+  /////////////////////////////////////////////////////////
   // detect leaving scope
 
   public class DetectLeavingScope : ARule
   {
     public override bool test(CSsemi.CSemiExp semi)
     {
+      Display.displayRules(actionDelegate, "rule   DetectLeavingScope");
       int index = semi.Contains("}");
       if (index != -1)
       {
@@ -416,8 +506,8 @@ namespace CodeAnalysis
       Parser parser = new Parser();
 
       // decide what to show
-      AAction.displaySemi = true;
-      AAction.displayStack = false;  // this is default so redundant
+      AAction.displaySemi = false;
+      AAction.displayStack = false;  // false is default
 
       // action used for namespaces, classes, and functions
       PushStack push = new PushStack(repo);
@@ -441,6 +531,12 @@ namespace CodeAnalysis
       DetectAnonymousScope anon = new DetectAnonymousScope();
       anon.add(push);
       parser.add(anon);
+
+      // show public declarations
+      DetectPublicDeclar pubDec = new DetectPublicDeclar();
+      SaveDeclar print = new SaveDeclar(repo);
+      pubDec.add(print);
+      parser.add(pubDec);
 
       // handle leaving scopes
       DetectLeavingScope leave = new DetectLeavingScope();

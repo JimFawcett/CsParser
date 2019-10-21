@@ -33,7 +33,7 @@ namespace myEligibleCheck
                 if (reader == null) continue;
                 myFile.closeReadFile(reader);
                 
-                htmFile =Path.GetDirectoryName(file)+@"\" + Path.GetFileNameWithoutExtension(file) + ".htm";
+                htmFile =Path.GetDirectoryName(file)+@"\"+ Path.GetFileNameWithoutExtension(file) + ".htm";
                 if (!myFile.ifExist(htmFile))
                 {
                     //Console.WriteLine("processing {0}", htmFile);

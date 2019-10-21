@@ -55,6 +55,10 @@ namespace CodeAnalysis
     static bool displaySemi_ = false;   // default
     static bool displayStack_ = false;  // default
 
+    protected Repository repo_;
+
+    static public Action<string> actionDelegate;
+
     public abstract void doAction(CSsemi.CSemiExp semi);
 
     public static bool displaySemi 
@@ -89,6 +93,8 @@ namespace CodeAnalysis
   public abstract class ARule : IRule
   {
     private List<IAction> actions;
+    static public Action<string> actionDelegate;
+
     public ARule()
     {
       actions = new List<IAction>();
@@ -109,10 +115,12 @@ namespace CodeAnalysis
       int indexIF = semi.Contains("interface");
       int indexST = semi.Contains("struct");
       int indexEN = semi.Contains("enum");
+      int indexDE = semi.Contains("delegate");
 
       int index = Math.Max(indexCL, indexIF);
       index = Math.Max(index, indexST);
       index = Math.Max(index, indexEN);
+      index = Math.Max(index, indexDE);
       return index;
     }
   }

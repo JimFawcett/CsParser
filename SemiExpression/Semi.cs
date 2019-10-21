@@ -117,7 +117,7 @@ namespace CSsemi
   public class CSemiExp
   {
     CToker toker = null;
-    List<string> semiExp = null;
+    List<string> semiExp = null; // this is a trailing comment
     string currTok = "";
     string prevTok = "";
 
@@ -268,7 +268,7 @@ namespace CSsemi
       if(semiExp.Contains("for"))
       {
         CSemiExp se = clone();
-        getSemi();
+        getSemi();                  // note recursive call
         se.Add(semiExp.ToArray());
         getSemi();
         se.Add(semiExp.ToArray());
